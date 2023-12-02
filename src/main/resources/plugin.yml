@@ -1,0 +1,4 @@
+name: Wirtschaftssystem
+version: '${project.version}'
+main: me.phastixtv.wirtschaftssystem.Wirtschaftssystem
+api-version: '1.20'
