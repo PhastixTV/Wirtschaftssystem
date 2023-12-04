@@ -8,25 +8,25 @@ import java.util.HashMap;
 import java.util.Objects;
 import java.util.Set;
 
-public class MySQLTabel {
-
+public class MySQLTable {
     private final MySQLConnection connection;
     private final String name;
     private final HashMap<String, MySQLDataType> colums;
 
-    public MySQLTabel(MySQLConnection connection, String name, HashMap<String, MySQLDataType> colums) {
+
+    public MySQLTable(MySQLConnection connection, String name, HashMap<String, MySQLDataType> colums) {
         this.connection = connection;
         this.name = name;
         this.colums = colums;
-        createTable();
+        createTabel();
     }
 
-    public void createTable() {
-        String sql = "CREATE TABEL IF NOT EXISTS " + name + "(";
+    public void createTabel() {
+        String sql = "CREATE TABLE IF NOT EXISTS " + name + "(";
         for (String colum : colums.keySet()) {
-            sql += colum + " " + colums.get(colum) + ",";
+            sql += colum + " " + colums.get(colum).toSQL() + ",";
         }
-        sql = sql.substring(0, sql.length() -1);
+        sql = sql.substring(0, sql.length() - 1);
         sql += ");";
         try {
             Statement statement = this.connection.getConnection().createStatement();
@@ -49,34 +49,32 @@ public class MySQLTabel {
         String columName;
 
         public Condition(String columName, String value) {
-            this.columName = columName;
             this.value = value;
+            this.columName = columName;
         }
     }
 
-    public void set(String columName, Objects objects, Condition condition) {
-        if (objects == null) {
+    public void set(String columName, Object objects, Condition condition) {
+        if(objects == null) {
             remove(condition);
             return;
         }
-
-        if (exists(condition)) {
+        if(exits(condition)) {
             try {
-                String sql = "update " + this.name + " set " + columName + " =? where " + condition.columName + "=?";
-
-                PreparedStatement preparedStatement = connection.getConnection().prepareStatement(sql);
-                preparedStatement.setObject(1, objects);
-                preparedStatement.setString(2, condition.value);
-                preparedStatement.executeUpdate();
+                String sql = "update " + this.name + " set " + columName + "=? where " + condition.columName + "=?";
+                PreparedStatement ps = connection.getConnection().prepareStatement(sql);
+                ps.setObject(1, objects);
+                ps.setString(2, condition.value);
+                ps.executeUpdate();
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }
         } else {
             try {
-                String sql = "insert into " + this.name + " (" + columName + ") values (?)";
-                PreparedStatement preparedStatement = connection.getConnection().prepareStatement(sql);
-                preparedStatement.setObject(1, objects);
-                preparedStatement.executeUpdate();
+                String sql = "insert into " + this.name + " ("  + columName + ") values (?)";
+                PreparedStatement ps = connection.getConnection().prepareStatement(sql);
+                ps.setObject(1, objects);
+                ps.executeUpdate();
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }
@@ -86,8 +84,19 @@ public class MySQLTabel {
     public void remove(Condition condition) {
         try {
             String sql = "delete from " + this.name + " where " + condition.columName + "=?";
-            PreparedStatement preparedStatement = connection.getConnection().prepareStatement(sql);
-            preparedStatement.setString(1, condition.value);
+            PreparedStatement ps = connection.getConnection().prepareStatement(sql);
+            ps.setString(1, condition.value);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private PreparedStatement select(String columName, Condition condition) {
+        try {
+            String sql = "select " + columName +" from " + this.name +" where " + condition.columName + "=?";
+            PreparedStatement ps = connection.getConnection().prepareStatement(sql);
+            ps.setString(1, condition.value);
+            return ps;
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -95,15 +104,11 @@ public class MySQLTabel {
 
     public String getString(String columName, Condition condition) {
         try {
-            String sql = "select " + columName + " from " + this.name + " where " + condition.columName + "=?";
-            PreparedStatement preparedStatement = connection.getConnection().prepareStatement(sql);
-            preparedStatement.setString(1, condition.value);
-
-            ResultSet resultSet = preparedStatement.executeQuery();
-            if (resultSet.next()) {
-                return resultSet.getString(columName);
+            ResultSet rs = select(columName, condition).executeQuery();
+            if (rs.next()) {
+                return rs.getString(columName);
             }
-            return  null;
+            return null;
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -111,15 +116,11 @@ public class MySQLTabel {
 
     public int getInt(String columName, Condition condition) {
         try {
-            String sql = "select " + columName + " from " + this.name + " where " + condition.columName + "=?";
-            PreparedStatement preparedStatement = connection.getConnection().prepareStatement(sql);;
-            preparedStatement.setString(1, condition.value);
-
-            ResultSet resultSet = preparedStatement.executeQuery();
-            if (resultSet.next()) {
-                return resultSet.getInt(columName);
+            ResultSet rs = select(columName, condition).executeQuery();
+            if (rs.next()) {
+                return rs.getInt(columName);
             }
-            return  0;
+            return 0;
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -127,29 +128,27 @@ public class MySQLTabel {
 
     public boolean getBoolean(String columName, Condition condition) {
         try {
-            String sql = "select " + columName + " from " + this.name + " where " + condition.columName + "=?";
-            PreparedStatement preparedStatement = connection.getConnection().prepareStatement(sql);
-            preparedStatement.setString(1, condition.value);
-
-            ResultSet resultSet = preparedStatement.executeQuery();
-            if (resultSet.next()) {
-                return resultSet.getBoolean(columName);
+            ResultSet rs = select(columName, condition).executeQuery();
+            if (rs.next()) {
+                return rs.getBoolean(columName);
             }
-            return  false;
+            return false;
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public boolean exists(Condition condition) {
+
+    public boolean exits(Condition condition) {
         try {
-            String sql = "select " + condition.columName + " from " + this.name + " where " + condition.columName + "=?";
-            PreparedStatement preparedStatement = connection.getConnection().prepareStatement(sql);
-            preparedStatement.setString(1, condition.value);
-            ResultSet resultSet = preparedStatement.executeQuery();
-            return resultSet.next();
+            String sql = "select " + condition.columName +" from " + this.name +" where " + condition.columName + "=?";
+            PreparedStatement ps = connection.getConnection().prepareStatement(sql);
+            ps.setString(1, condition.value);
+            ResultSet rs = ps.executeQuery();
+            return rs.next();
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
+
 }
